@@ -891,9 +891,11 @@ function dismissIosSheet() {
 function maybeShowIosBanner() {
   if (isStandalone() || bannerDismissed()) return;
   if (isIos() && isSafari()) {
-    document.getElementById('install-banner').classList.add('show');
-    document.querySelector('#install-banner .install-btn').textContent = 'How';
-    document.querySelector('#install-banner .install-btn').setAttribute('onclick', 'document.getElementById(\\'ios-sheet\\').classList.add(\\'show\\')');
+    const banner = document.getElementById('install-banner');
+    const btn = banner.querySelector('.install-btn');
+    banner.classList.add('show');
+    btn.textContent = 'How';
+    btn.onclick = function () { document.getElementById('ios-sheet').classList.add('show'); };
   }
 }
 
