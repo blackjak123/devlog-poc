@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="DevLog">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="description" content="Log development conversations in seconds, from your phone.">
+<title>DevLog</title>
+<link rel="manifest" id="manifest-link" href="manifest.json">
+<link rel="apple-touch-icon" id="apple-icon" href="">
+<link rel="icon" id="favicon-icon" href="" type="image/png">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --ink: #1a1a2e;
+  --paper: #faf8f4;
+  --sage: #7a9e87;
+  --warm: #e8825a;
+  --gold: #c9a84c;
+  --muted: #8a8a9a;
+  --border: #e5e2dc;
+  --card: #ffffff;
+  --success: #4a9e6e;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--ink);
+  color: var(--ink);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overscroll-behavior: none;
+}
+
+.app {
+  width: 100%;
+  max-width: 430px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── PROGRESS BAR ── */
+.progress-bar-wrap {
+  height: 4px;
+  background: rgba(255,255,255,0.15);
+  position: relative;
+  flex-shrink: 0;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: var(--gold);
+  border-radius: 0 2px 2px 0;
+  transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ── SCREEN ── */
+.screen {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  animation: fadeUp 0.3s ease both;
+}
+.screen.active { display: flex; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── DARK TOP ── */
+.top {
+  background: var(--ink);
+  padding: 48px 28px 32px;
+  position: relative;
+  overflow: hidden;
+}
+.top::after {
+  content: '';
+  position: absolute;
+  bottom: -40px; right: -40px;
+  width: 130px; height: 130px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(201,168,76,0.18) 0%, transparent 70%);
+}
+.step-label {
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.screen-question {
+  font-family: 'DM Serif Display', serif;
+  font-size: 28px;
+  line-height: 1.2;
+  color: white;
+  position: relative;
+  z-index: 1;
+}
+.screen-hint {
+  font-size: 13px;
+  color: rgba(255,255,255,0.45);
+  margin-top: 8px;
+  font-weight: 300;
+}
+
+/* ── LIGHT BOTTOM ── */
+.bottom {
+  background: var(--paper);
+  flex: 1;
+  padding: 28px 20px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── BIG CHOICE BUTTONS ── */
+.choice-btn {
+  width: 100%;
+  padding: 18px 20px;
+  border-radius: 16px;
+  border: 2px solid var(--border);
+  background: var(--card);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-family: 'DM Sans', sans-serif;
+}
+.choice-btn:active { transform: scale(0.97); }
+.choice-btn.selected {
+  border-color: var(--ink);
+  background: var(--ink);
+}
+.choice-btn.selected .choice-label { color: white; }
+.choice-btn.selected .choice-sub { color: rgba(255,255,255,0.55); }
+.choice-icon {
+  font-size: 26px;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--paper);
+}
+.choice-btn.selected .choice-icon { background: rgba(255,255,255,0.1); }
+.choice-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  display: block;
+}
+.choice-sub {
+  font-size: 12px;
+  color: var(--muted);
+  display: block;
+  margin-top: 2px;
+}
+
+/* ── GOAL CARDS ── */
+.goal-card {
+  width: 100%;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 2px solid var(--border);
+  background: var(--card);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  font-family: 'DM Sans', sans-serif;
+}
+.goal-card:active { transform: scale(0.97); }
+.goal-card.selected {
+  border-color: var(--ink);
+  background: var(--ink);
+}
+.goal-card.selected .goal-name { color: white; }
+.goal-card.selected .goal-meta { color: rgba(255,255,255,0.5); }
+.goal-card.selected .goal-tick { background: rgba(255,255,255,0.15); border-color: transparent; }
+.goal-card.selected .goal-tick::after { content: '✓'; color: white; font-size: 12px; }
+.goal-tick {
+  width: 24px; height: 24px;
+  border-radius: 7px;
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+  margin-top: 1px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.goal-name { font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.3; }
+.goal-meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.goal-progress { height: 3px; background: #eee; border-radius: 2px; margin-top: 8px; overflow: hidden; }
+.goal-progress-fill { height: 100%; border-radius: 2px; }
+
+/* ── VOICE NOTE BUTTON ── */
+.voice-area { display: flex; flex-direction: column; gap: 10px; }
+.voice-big-btn {
+  width: 100%;
+  padding: 22px;
+  border-radius: 20px;
+  border: 2.5px dashed #ccc9c0;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif;
+}
+.voice-big-btn.recording {
+  border-color: var(--warm);
+  background: #fff5f0;
+  animation: voicePulse 1.2s ease infinite;
+}
+.voice-big-btn.saved {
+  border-color: var(--sage);
+  background: #f0f9f3;
+  border-style: solid;
+}
+@keyframes voicePulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(232,130,90,0.25); }
+  50%      { box-shadow: 0 0 0 10px rgba(232,130,90,0); }
+}
+.voice-mic { font-size: 40px; }
+.voice-label { font-size: 15px; font-weight: 600; color: var(--muted); }
+.voice-big-btn.recording .voice-label { color: var(--warm); }
+.voice-big-btn.saved .voice-label { color: var(--sage); }
+.voice-waveform { display: none; align-items: center; gap: 3px; height: 28px; }
+.voice-waveform.show { display: flex; }
+.wave-bar { width: 4px; border-radius: 2px; background: var(--warm); animation: waveAnim 0.8s ease infinite; }
+.wave-bar:nth-child(1){animation-delay:0s;height:8px} .wave-bar:nth-child(2){animation-delay:0.1s;height:16px} .wave-bar:nth-child(3){animation-delay:0.2s;height:24px} .wave-bar:nth-child(4){animation-delay:0.15s;height:18px} .wave-bar:nth-child(5){animation-delay:0.05s;height:10px}
+@keyframes waveAnim { 0%,100%{transform:scaleY(0.4)} 50%{transform:scaleY(1)} }
+.skip-voice { text-align: center; font-size: 13px; color: var(--muted); cursor: pointer; padding: 4px; font-weight: 500; }
+
+/* ── NOTES ── */
+.notes-big {
+  width: 100%;
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  padding: 18px;
+  font-size: 16px;
+  font-family: 'DM Sans', sans-serif;
+  min-height: 140px;
+  resize: none;
+  outline: none;
+  color: var(--ink);
+  background: white;
+  line-height: 1.6;
+  transition: border-color 0.2s;
+}
+.notes-big:focus { border-color: var(--ink); }
+.skip-notes { text-align: center; font-size: 13px; color: var(--muted); cursor: pointer; padding: 4px; font-weight: 500; }
+
+/* ── NEXT BUTTON ── */
+.next-btn {
+  width: 100%;
+  padding: 18px;
+  border-radius: 16px;
+  border: none;
+  background: var(--ink);
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s;
+  margin-top: auto;
+}
+.next-btn:active { transform: scale(0.98); }
+.next-btn:disabled { background: #ddd; color: #aaa; cursor: not-allowed; }
+.next-btn.go { background: var(--sage); }
+.next-btn.submit { background: var(--warm); }
+.next-btn.syncing { background: #0070d2; }
+.next-btn.done { background: var(--success); }
+
+/* ── DONE SCREEN ── */
+.done-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 28px;
+  text-align: center;
+  gap: 16px;
+  background: var(--paper);
+}
+.done-ring {
+  width: 100px; height: 100px;
+  border-radius: 50%;
+  background: #e8f5ee;
+  border: 3px solid #b8dfc8;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 48px;
+  animation: popIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes popIn { from{opacity:0;transform:scale(0.7)} to{opacity:1;transform:scale(1)} }
+.done-title { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--ink); }
+.done-sub { font-size: 14px; color: var(--muted); line-height: 1.6; }
+.done-sf-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: #e8f3fc; border: 1px solid #b0d5f5;
+  border-radius: 20px; padding: 8px 16px;
+  font-size: 12px; font-weight: 700; color: #0070d2;
+}
+.done-again {
+  margin-top: 8px;
+  background: var(--ink); color: white;
+  border: none; border-radius: 14px;
+  padding: 14px 32px;
+  font-size: 15px; font-weight: 600;
+  cursor: pointer; font-family: 'DM Sans', sans-serif;
+}
+.done-summary {
+  background: white; border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px 18px;
+  width: 100%; text-align: left;
+  font-size: 12px; color: var(--muted);
+  line-height: 1.8;
+}
+.done-summary strong { color: var(--ink); font-weight: 600; }
+
+/* ── INSTALL BANNER ── */
+.install-banner {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  background: var(--ink);
+  padding: 12px 16px;
+  flex-shrink: 0;
+  animation: fadeUp 0.3s ease both;
+}
+.install-banner.show { display: flex; }
+.install-icon {
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  background: var(--gold);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.install-copy { flex: 1; min-width: 0; }
+.install-title { font-size: 13px; font-weight: 700; color: white; line-height: 1.3; }
+.install-sub { font-size: 11px; color: rgba(255,255,255,0.55); line-height: 1.3; margin-top: 1px; }
+.install-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.install-btn {
+  background: var(--gold);
+  color: var(--ink);
+  border: none;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+}
+.install-dismiss {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.4);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 6px;
+  line-height: 1;
+}
+
+/* ── iOS INSTALL SHEET ── */
+.ios-sheet-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 50;
+  align-items: flex-end;
+  justify-content: center;
+}
+.ios-sheet-backdrop.show { display: flex; }
+.ios-sheet {
+  width: 100%;
+  max-width: 430px;
+  background: var(--paper);
+  border-radius: 20px 20px 0 0;
+  padding: 24px 24px 32px;
+  animation: slideUp 0.25s ease both;
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.ios-sheet-title { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--ink); margin-bottom: 14px; }
+.ios-sheet-step { display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--ink); padding: 10px 0; border-bottom: 1px solid var(--border); }
+.ios-sheet-step:last-of-type { border-bottom: none; }
+.ios-sheet-num { width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: white; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ios-sheet-icon { font-size: 17px; }
+.ios-sheet-close {
+  width: 100%;
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 14px;
+  border: none;
+  background: var(--ink);
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" id="progress" style="width:0%"></div>
+  </div>
+
+  <!-- ══ INSTALL BANNER (Android/Chrome) ══ -->
+  <div class="install-banner" id="install-banner">
+    <div class="install-icon">📱</div>
+    <div class="install-copy">
+      <div class="install-title">Add DevLog to your phone</div>
+      <div class="install-sub">Log conversations in one tap, no app store</div>
+    </div>
+    <div class="install-actions">
+      <button class="install-btn" onclick="installApp()">Install</button>
+      <button class="install-dismiss" onclick="dismissInstallBanner()" aria-label="Dismiss">✕</button>
+    </div>
+  </div>
+
+  <!-- ══ SCREEN 1 — WHO ══ -->
+  <div class="screen active" id="s-who">
+    <div class="top">
+      <div class="step-label">Step 1 of 5</div>
+      <div class="screen-question">Who did you speak with?</div>
+      <div class="screen-hint">Tap their name</div>
+    </div>
+    <div class="bottom">
+      <button class="choice-btn" onclick="selectWho(this,'Jamie','Jamie L.','Operations')">
+        <div class="choice-icon">👤</div>
+        <div><span class="choice-label">Jamie L.</span><span class="choice-sub">Operations</span></div>
+      </button>
+      <button class="choice-btn" onclick="selectWho(this,'Marcus','Marcus K.','Logistics')">
+        <div class="choice-icon">👤</div>
+        <div><span class="choice-label">Marcus K.</span><span class="choice-sub">Logistics</span></div>
+      </button>
+      <button class="choice-btn" onclick="selectWho(this,'Priya','Priya S.','Team Lead')">
+        <div class="choice-icon">👤</div>
+        <div><span class="choice-label">Priya S.</span><span class="choice-sub">Team Lead</span></div>
+      </button>
+      <button class="choice-btn" onclick="selectWho(this,'Tom','Tom W.','Warehouse')">
+        <div class="choice-icon">👤</div>
+        <div><span class="choice-label">Tom W.</span><span class="choice-sub">Warehouse</span></div>
+      </button>
+      <button class="next-btn" id="next-who" disabled onclick="goTo('s-type')">Next →</button>
+    </div>
+  </div>
+
+  <!-- ══ SCREEN 2 — TYPE ══ -->
+  <div class="screen" id="s-type">
+    <div class="top">
+      <div class="step-label">Step 2 of 5</div>
+      <div class="screen-question">What kind of conversation?</div>
+      <div class="screen-hint">Tap one</div>
+    </div>
+    <div class="bottom">
+      <button class="choice-btn" onclick="selectType(this,'Q2 Check-in','Q2 · Apr–Jun 2026')">
+        <div class="choice-icon">📋</div>
+        <div><span class="choice-label">Q2 Check-in</span><span class="choice-sub">Apr–Jun 2026 · Recommended now</span></div>
+      </button>
+      <button class="choice-btn" onclick="selectType(this,'Development Goals','Growth & learning')">
+        <div class="choice-icon">🌱</div>
+        <div><span class="choice-label">Development Goals</span><span class="choice-sub">Skills, learning, career</span></div>
+      </button>
+      <button class="choice-btn" onclick="selectType(this,'Performance Goals','Results & targets')">
+        <div class="choice-icon">🎯</div>
+        <div><span class="choice-label">Performance Goals</span><span class="choice-sub">Results, targets, KPIs</span></div>
+      </button>
+      <button class="choice-btn" onclick="selectType(this,'Leadership Behaviors','Behaviours & values')">
+        <div class="choice-icon">⭐</div>
+        <div><span class="choice-label">Leadership Behaviors</span><span class="choice-sub">Behaviours & values</span></div>
+      </button>
+      <button class="next-btn" id="next-type" disabled onclick="goTo('s-goals')">Next →</button>
+    </div>
+  </div>
+
+  <!-- ══ SCREEN 3 — GOALS ══ -->
+  <div class="screen" id="s-goals">
+    <div class="top">
+      <div class="step-label">Step 3 of 5</div>
+      <div class="screen-question">Which goals did<br>you discuss?</div>
+      <div class="screen-hint" id="goals-hint">Tick all that came up · from SuccessFactors</div>
+    </div>
+    <div class="bottom" id="goals-bottom">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+
+  <!-- ══ SCREEN 4 — HOW ══ -->
+  <div class="screen" id="s-how">
+    <div class="top">
+      <div class="step-label">Step 4 of 5</div>
+      <div class="screen-question">How did it go?</div>
+      <div class="screen-hint">One tap is enough</div>
+    </div>
+    <div class="bottom">
+      <button class="choice-btn" onclick="selectHow(this,'Great 😊')">
+        <div class="choice-icon">😊</div>
+        <div><span class="choice-label">Great</span><span class="choice-sub">Really positive conversation</span></div>
+      </button>
+      <button class="choice-btn" onclick="selectHow(this,'Good 👍')">
+        <div class="choice-icon">👍</div>
+        <div><span class="choice-label">Good</span><span class="choice-sub">Went well overall</span></div>
+      </button>
+      <button class="choice-btn" onclick="selectHow(this,'Mixed 🤔')">
+        <div class="choice-icon">🤔</div>
+        <div><span class="choice-label">Mixed</span><span class="choice-sub">Some things to follow up</span></div>
+      </button>
+      <button class="choice-btn" onclick="selectHow(this,'Needs action ⚡')">
+        <div class="choice-icon">⚡</div>
+        <div><span class="choice-label">Needs action</span><span class="choice-sub">Something needs addressing</span></div>
+      </button>
+      <button class="next-btn go" id="next-how" disabled onclick="goTo('s-note')">Next →</button>
+    </div>
+  </div>
+
+  <!-- ══ SCREEN 5 — NOTE ══ -->
+  <div class="screen" id="s-note">
+    <div class="top">
+      <div class="step-label">Step 5 of 5</div>
+      <div class="screen-question">Anything worth<br>noting?</div>
+      <div class="screen-hint">Optional · voice or type · stays private</div>
+    </div>
+    <div class="bottom">
+      <div class="voice-area">
+        <button class="voice-big-btn" id="voice-btn" onclick="toggleVoice()">
+          <div class="voice-mic" id="voice-mic">🎙</div>
+          <div class="voice-waveform" id="waveform">
+            <div class="wave-bar"></div><div class="wave-bar"></div>
+            <div class="wave-bar"></div><div class="wave-bar"></div>
+            <div class="wave-bar"></div>
+          </div>
+          <div class="voice-label" id="voice-label">Hold to record</div>
+        </button>
+        <div style="text-align:center;font-size:12px;color:var(--muted);font-weight:500">or type below</div>
+        <textarea class="notes-big" id="notes-field" placeholder="Key actions, things to remember…"></textarea>
+      </div>
+      <div class="skip-notes" onclick="submitLog()">Skip — nothing to add</div>
+      <button class="next-btn submit" id="submit-btn" onclick="submitLog()">Done — submit to SF →</button>
+    </div>
+  </div>
+
+  <!-- ══ DONE SCREEN ══ -->
+  <div class="screen" id="s-done">
+    <div class="done-screen">
+      <div class="done-ring">✅</div>
+      <div class="done-title" id="done-title">Logged.</div>
+      <div class="done-sf-chip">⚡ Synced to SuccessFactors</div>
+      <div class="done-summary" id="done-summary"></div>
+      <div class="done-sub">That's it. The record is in SF.<br>Well done for making time for it.</div>
+      <button class="done-again" onclick="restart()">Log another →</button>
+    </div>
+  </div>
+
+  <!-- ══ iOS INSTALL SHEET ══ -->
+  <div class="ios-sheet-backdrop" id="ios-sheet">
+    <div class="ios-sheet">
+      <div class="ios-sheet-title">Add DevLog to your Home Screen</div>
+      <div class="ios-sheet-step"><div class="ios-sheet-num">1</div><div class="ios-sheet-icon">⬆️</div><div>Tap the <strong>Share</strong> button in Safari</div></div>
+      <div class="ios-sheet-step"><div class="ios-sheet-num">2</div><div class="ios-sheet-icon">➕</div><div>Scroll down and tap <strong>Add to Home Screen</strong></div></div>
+      <div class="ios-sheet-step"><div class="ios-sheet-num">3</div><div class="ios-sheet-icon">✅</div><div>Tap <strong>Add</strong> — DevLog opens like any other app</div></div>
+      <button class="ios-sheet-close" onclick="dismissIosSheet()">Got it</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── SF GOALS DATA ─────────────────────────────────────────
+const sfGoals = {
+  Jamie: [
+    { id:'G-9920', name:'Reduce ops processing time by 20%', type:'Performance', status:'At risk', pct:35, color:'#e8825a' },
+    { id:'G-9921', name:'Complete Lean Six Sigma Yellow Belt', type:'Development', status:'On track', pct:60, color:'#7a9e87' },
+    { id:'G-9922', name:'Lead cross-functional improvement project', type:'Development', status:'Not started', pct:0, color:'#ccc' },
+  ],
+  Marcus: [
+    { id:'G-8810', name:'Achieve 98.5% on-time delivery rate', type:'Performance', status:'On track', pct:82, color:'#7a9e87' },
+    { id:'G-8811', name:'Mentor two junior team members', type:'Development', status:'On track', pct:50, color:'#7a9e87' },
+    { id:'G-8812', name:'Implement automated stock alerts', type:'Performance', status:'Complete', pct:100, color:'#0070d2' },
+    { id:'G-8813', name:'Obtain CILT Level 3 qualification', type:'Development', status:'On track', pct:40, color:'#7a9e87' },
+  ],
+  Priya: [
+    { id:'G-7701', name:'Build team capability in data analysis', type:'Development', status:'On track', pct:55, color:'#7a9e87' },
+    { id:'G-7702', name:'Drive 15% efficiency gain in workflow', type:'Performance', status:'At risk', pct:28, color:'#e8825a' },
+    { id:'G-7703', name:'Complete Management Essentials programme', type:'Development', status:'On track', pct:70, color:'#7a9e87' },
+  ],
+  Tom: [
+    { id:'G-6601', name:'Forklift operator Level 2 certification', type:'Development', status:'On track', pct:90, color:'#7a9e87' },
+    { id:'G-6602', name:'Zero safety incidents for 12 months', type:'Performance', status:'On track', pct:65, color:'#7a9e87' },
+  ],
+};
+
+// ── STATE ─────────────────────────────────────────────────
+let state = { who:'', whoLabel:'', type:'', how:'', goals: new Set(), note:'', voice: false };
+let voiceRecording = false, voiceTimer = null;
+const steps = ['s-who','s-type','s-goals','s-how','s-note'];
+
+// ── PROGRESS ──────────────────────────────────────────────
+function setProgress(pct) {
+  document.getElementById('progress').style.width = pct + '%';
+}
+
+// ── NAVIGATION ────────────────────────────────────────────
+function goTo(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const target = document.getElementById(screenId);
+  target.classList.add('active');
+  // Scroll to top
+  target.scrollIntoView({ behavior:'instant' });
+  const idx = steps.indexOf(screenId);
+  if (idx >= 0) setProgress(((idx) / steps.length) * 100);
+
+  if (screenId === 's-goals') buildGoals();
+}
+
+// ── SCREEN 1: WHO ─────────────────────────────────────────
+function selectWho(el, key, label, role) {
+  document.querySelectorAll('#s-who .choice-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  state.who = key; state.whoLabel = label;
+  document.getElementById('next-who').disabled = false;
+}
+
+// ── SCREEN 2: TYPE ────────────────────────────────────────
+function selectType(el, type) {
+  document.querySelectorAll('#s-type .choice-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  state.type = type;
+  document.getElementById('next-type').disabled = false;
+}
+
+// ── SCREEN 3: GOALS ───────────────────────────────────────
+function buildGoals() {
+  state.goals.clear();
+  const bottom = document.getElementById('goals-bottom');
+  const goals = sfGoals[state.who] || [];
+
+  // Filter by conversation type where relevant
+  let filtered = goals;
+  if (state.type === 'Development Goals') filtered = goals.filter(g => g.type === 'Development');
+  if (state.type === 'Performance Goals') filtered = goals.filter(g => g.type === 'Performance');
+
+  let html = '';
+  if (filtered.length === 0) {
+    html = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:14px;background:white;border-radius:16px;border:2px solid var(--border)">No goals of this type found in SF</div>';
+  } else {
+    filtered.forEach(g => {
+      html += `
+        <button class="goal-card" id="gc-${g.id}" onclick="toggleGoal('${g.id}')">
+          <div class="goal-tick" id="tick-${g.id}"></div>
+          <div style="flex:1">
+            <div class="goal-name">${g.name}</div>
+            <div class="goal-meta">${g.type} · ${g.status} · ${g.pct}%</div>
+            <div class="goal-progress"><div class="goal-progress-fill" style="width:${g.pct}%;background:${g.color}"></div></div>
+          </div>
+        </button>`;
+    });
+  }
+  html += `<div style="text-align:center;font-size:12px;color:var(--muted);cursor:pointer;padding:4px;font-weight:500" onclick="goTo('s-how')">Skip — we didn't focus on specific goals</div>`;
+  html += `<button class="next-btn" id="next-goals" onclick="goTo('s-how')">Next →</button>`;
+  bottom.innerHTML = html;
+}
+
+function toggleGoal(id) {
+  const card = document.getElementById('gc-'+id);
+  if (state.goals.has(id)) {
+    state.goals.delete(id);
+    card.classList.remove('selected');
+  } else {
+    state.goals.add(id);
+    card.classList.add('selected');
+  }
+}
+
+// ── SCREEN 4: HOW ─────────────────────────────────────────
+function selectHow(el, how) {
+  document.querySelectorAll('#s-how .choice-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  state.how = how;
+  document.getElementById('next-how').disabled = false;
+}
+
+// ── SCREEN 5: VOICE ───────────────────────────────────────
+function toggleVoice() {
+  if (state.voice) return;
+  const btn = document.getElementById('voice-btn');
+  const mic = document.getElementById('voice-mic');
+  const lbl = document.getElementById('voice-label');
+  const wf  = document.getElementById('waveform');
+  if (!voiceRecording) {
+    voiceRecording = true;
+    btn.classList.add('recording');
+    mic.textContent = '⏹';
+    lbl.textContent = 'Tap to stop';
+    wf.classList.add('show');
+    voiceTimer = setTimeout(stopVoice, 10000);
+  } else { stopVoice(); }
+}
+function stopVoice() {
+  clearTimeout(voiceTimer); voiceRecording = false; state.voice = true;
+  const btn = document.getElementById('voice-btn');
+  btn.classList.remove('recording'); btn.classList.add('saved');
+  document.getElementById('voice-mic').textContent = '✓';
+  document.getElementById('voice-label').textContent = 'Voice note saved';
+  document.getElementById('waveform').classList.remove('show');
+}
+
+// ── SUBMIT ────────────────────────────────────────────────
+function submitLog() {
+  const btn = document.getElementById('submit-btn');
+  if (btn) { btn.classList.add('syncing'); btn.textContent = 'Syncing to SF…'; }
+
+  // Build summary for done screen
+  const goalObjs = [...state.goals].map(id => {
+    const all = sfGoals[state.who] || [];
+    return all.find(g => g.id === id);
+  }).filter(Boolean);
+
+  const recId = 'DEV-2026-00' + Math.floor(Math.random()*100+430);
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+
+  setTimeout(() => {
+    setProgress(100);
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('s-done').classList.add('active');
+    document.getElementById('done-title').textContent = state.whoLabel + ' — done.';
+    document.getElementById('done-summary').innerHTML = `
+      <strong>Who:</strong> ${state.whoLabel}<br>
+      <strong>Type:</strong> ${state.type}<br>
+      ${goalObjs.length ? `<strong>Goals:</strong> ${goalObjs.map(g=>g.name).join(', ')}<br>` : ''}
+      <strong>How it went:</strong> ${state.how}<br>
+      ${state.voice ? '<strong>Voice note:</strong> Attached<br>' : ''}
+      <strong>SF Record:</strong> ${recId} · ${timeStr}
+    `;
+  }, 1200);
+}
+
+// ── RESTART ───────────────────────────────────────────────
+function restart() {
+  state = { who:'', whoLabel:'', type:'', how:'', goals: new Set(), note:'', voice: false };
+  voiceRecording = false;
+  document.querySelectorAll('.choice-btn').forEach(b => b.classList.remove('selected'));
+  document.querySelectorAll('.next-btn').forEach(b => { b.disabled = true; });
+  document.getElementById('next-who').disabled = true;
+  document.getElementById('next-type').disabled = true;
+  document.getElementById('notes-field').value = '';
+  const vb = document.getElementById('voice-btn');
+  if (vb) { vb.className='voice-big-btn'; document.getElementById('voice-mic').textContent='🎙'; document.getElementById('voice-label').textContent='Hold to record'; document.getElementById('waveform').classList.remove('show'); }
+  goTo('s-who');
+  setProgress(0);
+}
+
+// ── PWA: ICON (drawn once, reused for manifest + favicon + apple-touch-icon) ──
+function generateIconDataUrl(size) {
+  const c = document.createElement('canvas');
+  c.width = size; c.height = size;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, 0, size, size);
+  ctx.beginPath();
+  ctx.arc(size * 0.78, size * 0.22, size * 0.34, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(201,168,76,0.18)';
+  ctx.fill();
+  ctx.fillStyle = '#c9a84c';
+  ctx.font = `700 ${size * 0.46}px 'DM Serif Display', serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('D', size * 0.5, size * 0.56);
+  return c.toDataURL('image/png');
+}
+
+// ── PWA: MANIFEST (built in-memory, no separate file needed) ──
+function installManifest() {
+  const icon192 = generateIconDataUrl(192);
+  const icon512 = generateIconDataUrl(512);
+  const manifest = {
+    name: 'DevLog — Development Conversation Logger',
+    short_name: 'DevLog',
+    description: 'Log development conversations in seconds, synced to SuccessFactors.',
+    start_url: '.',
+    display: 'standalone',
+    background_color: '#1a1a2e',
+    theme_color: '#1a1a2e',
+    orientation: 'portrait',
+    icons: [
+      { src: icon192, sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+      { src: icon512, sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+    ],
+  };
+  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+  document.getElementById('manifest-link').href = URL.createObjectURL(blob);
+  document.getElementById('apple-icon').href = icon192;
+  document.getElementById('favicon-icon').href = icon192;
+}
+
+// ── PWA: SERVICE WORKER (registered from an in-memory blob — no separate sw.js needed) ──
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  const swSource = `
+    const CACHE = 'devlog-v1';
+    self.addEventListener('install', e => {
+      self.skipWaiting();
+      e.waitUntil(caches.open(CACHE).then(c => c.add(self.registration.scope)));
+    });
+    self.addEventListener('activate', e => self.clients.claim());
+    self.addEventListener('fetch', e => {
+      e.respondWith(
+        fetch(e.request).then(res => {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, copy));
+          return res;
+        }).catch(() => caches.match(e.request))
+      );
+    });
+  `;
+  const swBlob = new Blob([swSource], { type: 'application/javascript' });
+  navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(() => {});
+}
+
+// ── PWA: ANDROID/CHROME INSTALL PROMPT ──
+let deferredInstallPrompt = null;
+function bannerDismissed() {
+  try { return localStorage.getItem('devlog-install-dismissed') === '1'; }
+  catch (e) { return false; }
+}
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  if (!bannerDismissed() && !isStandalone()) {
+    document.getElementById('install-banner').classList.add('show');
+  }
+});
+function installApp() {
+  const banner = document.getElementById('install-banner');
+  if (!deferredInstallPrompt) { banner.classList.remove('show'); return; }
+  deferredInstallPrompt.prompt();
+  deferredInstallPrompt.userChoice.finally(() => {
+    deferredInstallPrompt = null;
+    banner.classList.remove('show');
+  });
+}
+function dismissInstallBanner() {
+  document.getElementById('install-banner').classList.remove('show');
+  try { localStorage.setItem('devlog-install-dismissed', '1'); } catch (e) {}
+}
+window.addEventListener('appinstalled', () => {
+  document.getElementById('install-banner').classList.remove('show');
+});
+
+// ── PWA: iOS INSTALL SHEET (Safari has no beforeinstallprompt) ──
+function isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+function isIos() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+}
+function isSafari() {
+  return /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
+}
+function dismissIosSheet() {
+  document.getElementById('ios-sheet').classList.remove('show');
+  try { localStorage.setItem('devlog-install-dismissed', '1'); } catch (e) {}
+}
+function maybeShowIosBanner() {
+  if (isStandalone() || bannerDismissed()) return;
+  if (isIos() && isSafari()) {
+    document.getElementById('install-banner').classList.add('show');
+    document.querySelector('#install-banner .install-btn').textContent = 'How';
+    document.querySelector('#install-banner .install-btn').setAttribute('onclick', 'document.getElementById(\\'ios-sheet\\').classList.add(\\'show\\')');
+  }
+}
+
+// Auto-detect Q2 and pre-highlight
+document.addEventListener('DOMContentLoaded', () => {
+  setProgress(0);
+  installManifest();
+  registerServiceWorker();
+  maybeShowIosBanner();
+});
+</script>
+</body>
+</html>
