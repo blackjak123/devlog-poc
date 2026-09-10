@@ -601,7 +601,7 @@ const sfGoals = {
 };
 
 // ── STATE ─────────────────────────────────────────────────
-let state = { who:'', whoLabel:'', type:'', how:'', goals: new Set(), note:'', voice: false };
+let state = { who:'', whoLabel:'', whoAssignmentUuid:'', type:'', how:'', goals: new Set(), note:'', voice: false };
 let voiceRecording = false, voiceTimer = null;
 const steps = ['s-who','s-type','s-goals','s-how','s-note'];
 
@@ -649,8 +649,9 @@ function buildWho(reports) {
     const key = r.userId;
     const label = r.displayName || `${r.firstName} ${r.lastName}`;
     const role = r.title || r.jobTitle || '';
+    const assignmentUuid = r.assignmentUUID || '';
     html += `
-      <button class="choice-btn" onclick="selectWho(this,'${key}','${label.replace(/'/g, "\\'")}','${role.replace(/'/g, "\\'")}')">
+      <button class="choice-btn" onclick="selectWho(this,'${key}','${label.replace(/'/g, "\\'")}','${role.replace(/'/g, "\\'")}','${assignmentUuid}')">
         <div class="choice-icon">👤</div>
         <div><span class="choice-label">${label}</span><span class="choice-sub">${role}</span></div>
       </button>`;
@@ -659,10 +660,10 @@ function buildWho(reports) {
   bottom.innerHTML = html;
 }
 
-function selectWho(el, key, label, role) {
+function selectWho(el, key, label, role, assignmentUuid) {
   document.querySelectorAll('#s-who .choice-btn').forEach(b => b.classList.remove('selected'));
   el.classList.add('selected');
-  state.who = key; state.whoLabel = label;
+  state.who = key; state.whoLabel = label; state.whoAssignmentUuid = assignmentUuid;
   document.getElementById('next-who').disabled = false;
 }
 
@@ -751,7 +752,9 @@ function stopVoice() {
 }
 
 // ── SUBMIT ────────────────────────────────────────────────
-function submitLog() {
+const COMPLETED_STATUS_ID = '273E17F09259490A9DC8258A97C50C02'; // "Completed" — confirmed via sandbox GET /activities
+
+async function submitLog() {
   const btn = document.getElementById('submit-btn');
   if (btn) { btn.classList.add('syncing'); btn.textContent = 'Syncing to SF…'; }
 
@@ -761,9 +764,45 @@ function submitLog() {
     return all.find(g => g.id === id);
   }).filter(Boolean);
 
-  const recId = 'DEV-2026-00' + Math.floor(Math.random()*100+430);
   const now = new Date();
   const timeStr = now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  const noteText = document.getElementById('notes-field').value.trim();
+  const nameField = `${state.type} — ${state.how}${noteText ? ': ' + noteText : ''}`;
+
+  let recId = null;
+  let realWrite = false;
+
+  // Attempt a real write. Until IT provisions tenant credentials the proxy
+  // returns 501, which we catch and fall back to the local mock below —
+  // the demo keeps working either way.
+  if (state.whoAssignmentUuid) {
+    try {
+      const payload = {
+        name: nameField,
+        statusRecordId: COMPLETED_STATUS_ID,
+        subjectUserAssignmentUuid: state.whoAssignmentUuid,
+        isAchievement: false,
+      };
+      if (goalObjs[0]) payload.devGoalId = goalObjs[0].id;
+
+      const res = await fetch('/.netlify/functions/sf-proxy?path=activities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        recId = (data.d && data.d.activityRecordId) || data.activityRecordId || null;
+        realWrite = !!recId;
+      }
+    } catch (err) {
+      // Network or config error — fall through to mock below.
+    }
+  }
+
+  if (!recId) {
+    recId = 'DEV-2026-00' + Math.floor(Math.random()*100+430);
+  }
 
   setTimeout(() => {
     setProgress(100);
@@ -776,14 +815,14 @@ function submitLog() {
       ${goalObjs.length ? `<strong>Goals:</strong> ${goalObjs.map(g=>g.name).join(', ')}<br>` : ''}
       <strong>How it went:</strong> ${state.how}<br>
       ${state.voice ? '<strong>Voice note:</strong> Attached<br>' : ''}
-      <strong>SF Record:</strong> ${recId} · ${timeStr}
+      <strong>SF Record:</strong> ${recId} · ${timeStr}${realWrite ? ' <span style="color:var(--success)">(live write)</span>' : ' <span style="color:var(--muted)">(simulated)</span>'}
     `;
-  }, 1200);
+  }, realWrite ? 200 : 1200);
 }
 
 // ── RESTART ───────────────────────────────────────────────
 function restart() {
-  state = { who:'', whoLabel:'', type:'', how:'', goals: new Set(), note:'', voice: false };
+  state = { who:'', whoLabel:'', whoAssignmentUuid:'', type:'', how:'', goals: new Set(), note:'', voice: false };
   voiceRecording = false;
   document.querySelectorAll('.choice-btn').forEach(b => b.classList.remove('selected'));
   document.querySelectorAll('.next-btn').forEach(b => { b.disabled = true; });
