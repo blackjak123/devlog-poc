@@ -451,24 +451,8 @@ body {
       <div class="screen-question">Who did you speak with?</div>
       <div class="screen-hint">Tap their name</div>
     </div>
-    <div class="bottom">
-      <button class="choice-btn" onclick="selectWho(this,'Jamie','Jamie L.','Operations')">
-        <div class="choice-icon">👤</div>
-        <div><span class="choice-label">Jamie L.</span><span class="choice-sub">Operations</span></div>
-      </button>
-      <button class="choice-btn" onclick="selectWho(this,'Marcus','Marcus K.','Logistics')">
-        <div class="choice-icon">👤</div>
-        <div><span class="choice-label">Marcus K.</span><span class="choice-sub">Logistics</span></div>
-      </button>
-      <button class="choice-btn" onclick="selectWho(this,'Priya','Priya S.','Team Lead')">
-        <div class="choice-icon">👤</div>
-        <div><span class="choice-label">Priya S.</span><span class="choice-sub">Team Lead</span></div>
-      </button>
-      <button class="choice-btn" onclick="selectWho(this,'Tom','Tom W.','Warehouse')">
-        <div class="choice-icon">👤</div>
-        <div><span class="choice-label">Tom W.</span><span class="choice-sub">Warehouse</span></div>
-      </button>
-      <button class="next-btn" id="next-who" disabled onclick="goTo('s-type')">Next →</button>
+    <div class="bottom" id="who-bottom">
+      <div style="padding:20px;text-align:center;color:var(--muted);font-size:14px">Loading your team from SF…</div>
     </div>
   </div>
 
@@ -639,7 +623,42 @@ function goTo(screenId) {
   if (screenId === 's-goals') buildGoals();
 }
 
-// ── SCREEN 1: WHO ─────────────────────────────────────────
+// ── SCREEN 1: WHO (live from SF sandbox via Netlify Function proxy) ──
+// Hardcoded manager for this POC — a real user with 7 direct reports
+// confirmed in the sandbox. Swap for a logged-in manager's userId later.
+const MANAGER_ID = 'abirken';
+
+async function fetchDirectReports() {
+  const bottom = document.getElementById('who-bottom');
+  try {
+    const path = encodeURIComponent(`User('${MANAGER_ID}')/directReports`);
+    const res = await fetch(`/.netlify/functions/sf-proxy?path=${path}`);
+    if (!res.ok) throw new Error(`Proxy returned ${res.status}`);
+    const data = await res.json();
+    const reports = (data.d && data.d.results) || [];
+    buildWho(reports);
+  } catch (err) {
+    bottom.innerHTML = `<div style="padding:20px;text-align:center;color:var(--warm);font-size:13px;background:white;border-radius:16px;border:2px solid var(--border)">Couldn't load your team from SF.<br><span style="color:var(--muted);font-size:11px">${err.message}</span></div>`;
+  }
+}
+
+function buildWho(reports) {
+  const bottom = document.getElementById('who-bottom');
+  let html = '';
+  reports.forEach(r => {
+    const key = r.userId;
+    const label = r.displayName || `${r.firstName} ${r.lastName}`;
+    const role = r.title || r.jobTitle || '';
+    html += `
+      <button class="choice-btn" onclick="selectWho(this,'${key}','${label.replace(/'/g, "\\'")}','${role.replace(/'/g, "\\'")}')">
+        <div class="choice-icon">👤</div>
+        <div><span class="choice-label">${label}</span><span class="choice-sub">${role}</span></div>
+      </button>`;
+  });
+  html += `<button class="next-btn" id="next-who" disabled onclick="goTo('s-type')">Next →</button>`;
+  bottom.innerHTML = html;
+}
+
 function selectWho(el, key, label, role) {
   document.querySelectorAll('#s-who .choice-btn').forEach(b => b.classList.remove('selected'));
   el.classList.add('selected');
@@ -768,8 +787,8 @@ function restart() {
   voiceRecording = false;
   document.querySelectorAll('.choice-btn').forEach(b => b.classList.remove('selected'));
   document.querySelectorAll('.next-btn').forEach(b => { b.disabled = true; });
-  document.getElementById('next-who').disabled = true;
   document.getElementById('next-type').disabled = true;
+  fetchDirectReports();
   document.getElementById('notes-field').value = '';
   const vb = document.getElementById('voice-btn');
   if (vb) { vb.className='voice-big-btn'; document.getElementById('voice-mic').textContent='🎙'; document.getElementById('voice-label').textContent='Hold to record'; document.getElementById('waveform').classList.remove('show'); }
@@ -905,6 +924,7 @@ document.addEventListener('DOMContentLoaded', () => {
   installManifest();
   registerServiceWorker();
   maybeShowIosBanner();
+  fetchDirectReports();
 });
 </script>
 </body>
